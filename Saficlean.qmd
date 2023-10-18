@@ -1,0 +1,203 @@
+---
+title: "Saficlean"
+format: html
+---
+
+## Download clean data
+
+```{r}
+library(tidyverse)
+library(readr)
+if (!dir.exists("data"))
+    dir.create("data")
+
+if (! file.exists("data/SAFI_clean.csv")) {
+    download.file("https://ndownloader.figshare.com/files/11492171",
+                  "data/SAFI_clean.csv", mode = "wb")
+}
+
+# open SAFI_clean.csv
+safi <- read_csv("data/SAFI_clean.csv")
+safi
+
+
+dim(safi)
+glimpse(safi)
+
+```
+
+## Explorative Data Analysis using `dplyr`
+
+### selecting
+The code `select()` we use to select columns
+
+For example
+
+```{r}
+#select interview_date, village, no_membrs, years_liv
+select(safi, interview_date, village, no_membrs, years_liv)
+
+```
+
+### filtering
+You can also choose rows based on their values using `filter()`
+
+```{r}
+# filter for rows where village is "God"
+filter(safi, village == "God")
+```
+
+### pipes
+The pipe operator `%>%` is used to chain together multiple `dplyr` functions (for example selecting and filtering. You can also use `|>` instead of `%>%` if you prefer.
+```{r}
+# filter village=God and select no_membrs and years_liv
+safi %>% 
+  filter(village == "God") %>% 
+  select(no_membrs, years_liv)
+
+```
+
+
+
+### mutating
+We use `mutate()` to create new columns
+
+```{r}
+
+#ratio of number of household members to number of rooms
+safi %>% 
+  mutate(ratio = no_membrs / rooms)
+
+
+```
+
+Let us research whether a member of an irrigation association had any effect on the ratio of household members to rooms. To look at this relationship, we remove data from our dataset where the respondent didn't answer the question of whether they were a memnber of an irrigation association (recorded als "NULL" in the dataset)
+
+
+```{r}
+# to remove these cases, we could use filter() to remove and people per room is ratio of number of household members to number of rooms 
+safinew<-safi %>% 
+  filter(!is.na(memb_assoc)) %>%
+  mutate(people_per_room = no_membrs / rooms)
+safinew
+```
+### summarizing
+`group_by()` is used to group the data by a variable and often used together with `summarize`. `summarize()` is used to calculate summary statistics for each group. 
+
+```{r}
+# to compute the average number of household size for each village
+safi %>% 
+  group_by(village) %>% 
+  summarize(mean_no_membrs = mean(no_membrs))
+
+
+```
+
+```{r}
+# group by multiple columns (village, memb_assoc) and calculate the mean number of household members
+safi %>% 
+  group_by(village, memb_assoc) %>% 
+  summarize(mean_no_membrs = mean(no_membrs))
+
+
+```
+
+Once the data are groupes, you can also summarize multiple variables at once (and not necessary on the same variable)
+
+```{r}
+# we could  add a column indicating the minimum household size for each village for each group (member of irrigation association or not) and take out if memb_assoc is missing.
+safi %>% 
+  filter(!is.na(memb_assoc)) %>%
+  group_by(village, memb_assoc) %>% 
+  summarize(mean_no_membrs = mean(no_membrs),
+            min_no_membrs = min(no_membrs))
+
+```
+
+
+
+### counting
+
+`count()` is used to count the number of observations in each group, for each factor or comination of factors
+
+```{r}
+# count village
+safi %>% 
+  count(village)
+
+```
+
+```{r}
+# count village in decreasing order
+safi %>% 
+  count(village, sort = TRUE)
+
+```
+
+
+## Data visualization
+
+Building plots with `ggplot2` involves three steps:
+- step 1: use `ggplot()` to specify the dataset and variables to be plotted
+- step 2: add on layers to specify the type of plot (points, lines, bars, etc.)
+- step 3: (optionally) add on themes, faceting specifications, and other details to make the plot more informative and interpretable
+
+Building plots with ggplot2 is an iterative process. You may need to try out several different combinations of variables and layers before you get the plot you want.
+
+```{r}
+# plot no_membrs vs. rooms 
+ggplot(data = safi) +
+  geom_point(mapping = aes(x = no_membrs, y = rooms))
+
+```
+
+```{r}
+# use bit of randomness in position to avoid overplotting, alpha 0.5
+ggplot(data = safi) +
+  geom_point(mapping = aes(x = no_membrs, y = rooms), position = "jitter", alpha = 0.5)
+
+```
+
+```{r}
+# same plot but use color blue
+ggplot(data = safi) +
+  geom_point(mapping = aes(x = no_membrs, y = rooms), position = "jitter", alpha = 0.5, color = "blue")
+
+```
+
+```{r}
+# same plot but use color=village
+ggplot(data = safi) +
+  geom_point(mapping = aes(x = no_membrs, y = rooms, color = village), position = "jitter", alpha = 0.5)
+
+```
+
+```{r}
+# same plot but add title and subtitle
+ggplot(data = safi) +
+  geom_point(mapping = aes(x = no_membrs, y = rooms, color = village), position = "jitter", alpha = 0.5) +
+  labs(title = "Number of household members vs. number of rooms",
+       subtitle = "Data from SAFI")
+
+```
+
+`ggplot` has a special technique called faceting that allows you to split one plot into multiple plots based on a factor included in the dataset. 
+
+```{r}
+# plot bar x=reSpondent_wall_type facet=village
+ggplot(data = safi) +
+  geom_bar(mapping = aes(x = respondent_wall_type)) +
+  facet_wrap(~ village)
+
+```
+
+```{r}
+# same plot but theme_bw()
+ggplot(data = safi) +
+  geom_bar(mapping = aes(x = respondent_wall_type)) +
+  facet_wrap(~ village) +
+  theme_bw()
+
+```
+
+[Data Carpentry:R for Social Scientists](https://kelseygonzalez.github.io/2020-01-15-brynmawr-lessons/intro.html)
